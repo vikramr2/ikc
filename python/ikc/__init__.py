@@ -1,28 +1,9 @@
 """
 Python wrapper for the Iterative K-Core Clustering (IKC) C++ implementation.
 """
-import os
-import subprocess
-import tempfile
-import pandas as pd
 from pathlib import Path
-from typing import Optional, Union
-
-
-def _get_ikc_executable():
-    """Find the ikc executable in the build directory."""
-    # Get the path relative to this file
-    current_dir = Path(__file__).parent
-    # Go up two levels to the project root, then into build
-    ikc_path = current_dir.parent.parent / "build" / "ikc"
-
-    if not ikc_path.exists():
-        raise FileNotFoundError(
-            f"IKC executable not found at {ikc_path}. "
-            "Please build the project first using: cd build && cmake .. && make"
-        )
-
-    return str(ikc_path)
+from typing import Optional, List, Tuple
+import _ikc
 
 
 class ClusterResult:
@@ -30,16 +11,30 @@ class ClusterResult:
     Represents clustering results from the IKC algorithm.
     """
 
-    def __init__(self, data: pd.DataFrame, format_type: str = "csv"):
+    def __init__(self, clusters: List[_ikc.Cluster]):
         """
         Initialize ClusterResult.
 
         Args:
-            data: DataFrame with clustering results
-            format_type: Either "csv" (full format) or "tsv" (simple format)
+            clusters: List of Cluster objects from C++
         """
-        self.data = data
-        self.format_type = format_type
+        self.clusters = clusters
+        self._data = None
+
+    @property
+    def data(self) -> List[Tuple[int, int, int, float]]:
+        """
+        Get clustering results as a list of tuples.
+
+        Returns:
+            List of (node_id, cluster_id, k_value, modularity) tuples
+        """
+        if self._data is None:
+            self._data = []
+            for cluster_idx, cluster in enumerate(self.clusters, start=1):
+                for node_id in cluster.nodes:
+                    self._data.append((node_id, cluster_idx, cluster.k_value, cluster.modularity))
+        return self._data
 
     def save(self, filename: str, tsv: bool = False):
         """
@@ -50,38 +45,40 @@ class ClusterResult:
             tsv: If True, save as TSV with only node_id and cluster_id (no header)
                  If False, save as CSV with all columns
         """
-        if tsv:
-            # TSV format: node_id and cluster_id only, no header
-            self.data[['node_id', 'cluster_id']].to_csv(
-                filename,
-                sep='\t',
-                index=False,
-                header=False
-            )
-        else:
-            # CSV format: all columns with header
-            self.data.to_csv(filename, index=False)
+        with open(filename, 'w') as f:
+            if not tsv:
+                # CSV format with header
+                f.write("node_id,cluster_id,k_value,modularity\n")
+
+            for cluster_idx, cluster in enumerate(self.clusters, start=1):
+                for node_id in cluster.nodes:
+                    if tsv:
+                        # TSV format: node_id<tab>cluster_id
+                        f.write(f"{node_id}\t{cluster_idx}\n")
+                    else:
+                        # CSV format: all columns
+                        f.write(f"{node_id},{cluster_idx},{cluster.k_value},{cluster.modularity}\n")
 
         print(f"Results saved to: {filename}")
 
     def __repr__(self):
-        n_clusters = self.data['cluster_id'].nunique()
-        n_nodes = len(self.data)
+        n_clusters = len(self.clusters)
+        n_nodes = sum(len(cluster.nodes) for cluster in self.clusters)
         return f"ClusterResult(nodes={n_nodes}, clusters={n_clusters})"
 
     def __len__(self):
         """Return number of nodes in the clustering."""
-        return len(self.data)
+        return sum(len(cluster.nodes) for cluster in self.clusters)
 
     @property
     def num_clusters(self):
         """Return the number of clusters."""
-        return self.data['cluster_id'].nunique()
+        return len(self.clusters)
 
     @property
     def num_nodes(self):
         """Return the number of nodes."""
-        return len(self.data)
+        return sum(len(cluster.nodes) for cluster in self.clusters)
 
 
 class Graph:
@@ -89,93 +86,66 @@ class Graph:
     Represents a graph for IKC clustering.
     """
 
-    def __init__(self, graph_file: str):
+    def __init__(self, graph_file: str, num_threads: Optional[int] = None, verbose: bool = False):
         """
         Initialize Graph from a TSV edge list file.
 
         Args:
             graph_file: Path to the graph edge list file (TSV format)
+            num_threads: Number of threads to use for loading (default: hardware concurrency)
+            verbose: If True, print loading progress
         """
         self.graph_file = str(Path(graph_file).resolve())
 
         if not Path(self.graph_file).exists():
             raise FileNotFoundError(f"Graph file not found: {self.graph_file}")
 
+        # Load graph using C++ binding
+        if num_threads is None:
+            self._graph = _ikc.load_graph(self.graph_file, verbose=verbose)
+        else:
+            self._graph = _ikc.load_graph(self.graph_file, num_threads, verbose)
+
+    @property
+    def num_nodes(self):
+        """Number of nodes in the graph."""
+        return self._graph.num_nodes
+
+    @property
+    def num_edges(self):
+        """Number of edges in the graph."""
+        return self._graph.num_edges
+
     def ikc(self,
             min_k: int = 0,
-            num_threads: Optional[int] = None,
-            quiet: bool = False) -> ClusterResult:
+            verbose: bool = False) -> ClusterResult:
         """
         Run the Iterative K-Core Clustering algorithm.
 
         Args:
             min_k: Minimum k value for valid clusters (default: 0)
-            num_threads: Number of threads to use (default: hardware concurrency)
-            quiet: If True, suppress verbose output from the C++ program
+            verbose: If True, print algorithm progress
 
         Returns:
             ClusterResult object containing the clustering results
         """
-        ikc_executable = _get_ikc_executable()
+        # Run IKC algorithm using C++ binding
+        clusters = _ikc.run_ikc(self._graph, min_k, self._graph, verbose)
 
-        # Create a temporary file for output
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp:
-            tmp_output = tmp.name
-
-        try:
-            # Build command
-            cmd = [
-                ikc_executable,
-                '-e', self.graph_file,
-                '-o', tmp_output,
-                '-k', str(min_k)
-            ]
-
-            if num_threads is not None:
-                cmd.extend(['-t', str(num_threads)])
-
-            if quiet:
-                cmd.append('-q')
-
-            # Run the IKC algorithm
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True
-            )
-
-            if result.returncode != 0:
-                raise RuntimeError(
-                    f"IKC algorithm failed with return code {result.returncode}\n"
-                    f"STDOUT: {result.stdout}\n"
-                    f"STDERR: {result.stderr}"
-                )
-
-            # Print output if not quiet
-            if not quiet and result.stdout:
-                print(result.stdout)
-
-            # Read the results
-            df = pd.read_csv(tmp_output, header=None,
-                           names=['node_id', 'cluster_id', 'k_value', 'modularity'])
-
-            return ClusterResult(df, format_type='csv')
-
-        finally:
-            # Clean up temporary file
-            if os.path.exists(tmp_output):
-                os.remove(tmp_output)
+        return ClusterResult(clusters)
 
     def __repr__(self):
-        return f"Graph(file='{self.graph_file}')"
+        return f"Graph(file='{self.graph_file}', nodes={self.num_nodes}, edges={self.num_edges})"
 
 
-def load_graph(graph_file: str) -> Graph:
+def load_graph(graph_file: str, num_threads: Optional[int] = None, verbose: bool = False) -> Graph:
     """
     Load a graph from a TSV edge list file.
 
     Args:
         graph_file: Path to the graph edge list file (TSV format)
+        num_threads: Number of threads to use for loading (default: hardware concurrency)
+        verbose: If True, print loading progress
 
     Returns:
         Graph object ready for clustering
@@ -186,7 +156,7 @@ def load_graph(graph_file: str) -> Graph:
         >>> c = g.ikc(10)
         >>> c.save('out.tsv', tsv=True)
     """
-    return Graph(graph_file)
+    return Graph(graph_file, num_threads, verbose)
 
 
 __all__ = ['load_graph', 'Graph', 'ClusterResult']

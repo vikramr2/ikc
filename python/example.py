@@ -27,7 +27,7 @@ print()
 # Run IKC with min_k=10
 print("Running IKC algorithm with min_k=10...")
 print()
-clusters = g.ikc(min_k=10, quiet=False)
+clusters = g.ikc(min_k=10, verbose=True)
 print()
 
 # Print results
@@ -39,8 +39,10 @@ print(f"Total clusters found: {clusters.num_clusters}")
 print()
 
 # Show first few rows
-print("First 10 rows of results:")
-print(clusters.data.head(10))
+print("First 10 rows of results (node_id, cluster_id, k_value, modularity):")
+for i, row in enumerate(clusters.data[:10]):
+    node_id, cluster_id, k_value, modularity = row
+    print(f"  {node_id:8d} {cluster_id:6d} {k_value:3d} {modularity:6.3f}")
 print()
 
 # Save in TSV format (node_id, cluster_id only, no header)

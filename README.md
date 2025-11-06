@@ -70,24 +70,22 @@ node_id,cluster_id,k_value,modularity
 
 ## Python Wrapper
 
+The Python wrapper uses **pybind11** to directly bind the C++ code, providing:
+- Fast performance (no subprocess overhead)
+- Clean Python API
+- No heavy dependencies (no pandas required)
+
 ### Installation
 
-1. **Build the C++ executable first** (see above)
-
-2. **Install the Python package:**
+**Install the Python package:**
 
 ```bash
 pip install -e .
 ```
 
-Or without installation:
-```python
-import sys
-sys.path.insert(0, 'path/to/ikc/python')
-import ikc
-```
+This will automatically compile the C++ extension and install the Python package.
 
-3. **Verify installation:**
+**Verify installation:**
 
 ```bash
 python3 -c "import ikc; print('IKC wrapper installed successfully!')"
@@ -114,30 +112,31 @@ c.save('out.csv', tsv=False)
 print(f"Number of clusters: {c.num_clusters}")
 print(f"Number of nodes: {c.num_nodes}")
 
-# Access the underlying pandas DataFrame
-print(c.data.head())
+# Access the underlying data as list of tuples
+print(c.data[:10])  # First 10 rows
 ```
 
 ### Python API Reference
 
-#### `ikc.load_graph(graph_file)`
+#### `ikc.load_graph(graph_file, num_threads=None, verbose=False)`
 
 Load a graph from a TSV edge list file.
 
 **Parameters:**
 - `graph_file` (str): Path to the graph edge list file (TSV format)
+- `num_threads` (int, optional): Number of threads for loading (default: hardware concurrency)
+- `verbose` (bool): Print loading progress (default: False)
 
 **Returns:**
 - `Graph`: Graph object ready for clustering
 
-#### `Graph.ikc(min_k=0, num_threads=None, quiet=False)`
+#### `Graph.ikc(min_k=0, verbose=False)`
 
 Run the Iterative K-Core Clustering algorithm.
 
 **Parameters:**
 - `min_k` (int): Minimum k value for valid clusters (default: 0)
-- `num_threads` (int, optional): Number of threads to use (default: hardware concurrency)
-- `quiet` (bool): If True, suppress verbose output from the C++ program (default: False)
+- `verbose` (bool): Print algorithm progress (default: False)
 
 **Returns:**
 - `ClusterResult`: Object containing the clustering results
@@ -154,21 +153,23 @@ Save clustering results to a file.
 
 - `num_clusters`: Number of clusters found
 - `num_nodes`: Number of nodes in the clustering
-- `data`: Underlying pandas DataFrame with columns: `node_id`, `cluster_id`, `k_value`, `modularity`
+- `data`: List of tuples `(node_id, cluster_id, k_value, modularity)` for all clustered nodes
+- `clusters`: List of C++ Cluster objects with `nodes`, `k_value`, and `modularity` attributes
 
 ### Python Example
 
 ```python
 import ikc
 
-# Load graph
-g = ikc.load_graph('data/cit_hepph.tsv')
+# Load graph with 4 threads
+g = ikc.load_graph('data/cit_hepph.tsv', num_threads=4)
+print(g)  # Graph(file='...', nodes=34546, edges=420877)
 
-# Run IKC with min_k=10, using 4 threads
-clusters = g.ikc(min_k=10, num_threads=4)
+# Run IKC with min_k=10
+clusters = g.ikc(min_k=10)
 
 # Print summary
-print(clusters)  # ClusterResult(nodes=34546, clusters=156)
+print(clusters)  # ClusterResult(nodes=34546, clusters=27639)
 
 # Save in TSV format
 clusters.save('output.tsv', tsv=True)
@@ -176,8 +177,10 @@ clusters.save('output.tsv', tsv=True)
 # Save in CSV format with all columns
 clusters.save('output.csv', tsv=False)
 
-# Access the data
-print(clusters.data.head(10))
+# Access the data (first 5 rows)
+for row in clusters.data[:5]:
+    node_id, cluster_id, k_value, modularity = row
+    print(f"Node {node_id} in cluster {cluster_id}")
 
 # Get cluster statistics
 print(f"Total clusters: {clusters.num_clusters}")
@@ -195,11 +198,11 @@ python3 python/example.py
 ### C++
 - CMake 3.10+
 - C++17 compatible compiler
-- pthread support
+- OpenMP support (for parallel graph loading)
 
 ### Python
 - Python 3.7+
-- pandas > 1.0.0
+- pybind11 >= 2.6.0 (automatically installed with `pip install`)
 
 ## Input Format
 
