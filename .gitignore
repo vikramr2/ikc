@@ -23,7 +23,7 @@
 *.exe
 *.out
 *.app
-ikc
+# ikc
 reccs
 reccspp
 
