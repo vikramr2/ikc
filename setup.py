@@ -1,4 +1,6 @@
 from setuptools import setup, Extension, find_packages
+import sys
+import os
 
 class get_pybind_include:
     """Helper class to determine the pybind11 include path"""
@@ -6,17 +8,38 @@ class get_pybind_include:
         import pybind11
         return pybind11.get_include()
 
+# Configure OpenMP flags based on platform
+extra_compile_args = ['-std=c++17', '-O3']
+extra_link_args = []
+include_dirs = [str(get_pybind_include()), 'lib']
+library_dirs = []
+libraries = []
+
+if sys.platform == 'darwin':
+    # macOS - use libomp from Homebrew
+    omp_prefix = '/usr/local/opt/libomp'
+    if os.path.exists(omp_prefix):
+        extra_compile_args += ['-Xpreprocessor', '-fopenmp']
+        include_dirs.append(f'{omp_prefix}/include')
+        library_dirs.append(f'{omp_prefix}/lib')
+        libraries.append('omp')
+    else:
+        print("Warning: libomp not found. Install with: brew install libomp")
+else:
+    # Linux and other platforms
+    extra_compile_args.append('-fopenmp')
+    extra_link_args.append('-fopenmp')
+
 ext_modules = [
     Extension(
         '_ikc',
         sources=['python/bindings.cpp'],
-        include_dirs=[
-            str(get_pybind_include()),
-            'lib',
-        ],
+        include_dirs=include_dirs,
+        library_dirs=library_dirs,
+        libraries=libraries,
         language='c++',
-        extra_compile_args=['-std=c++17', '-O3', '-fopenmp'],
-        extra_link_args=['-fopenmp'],
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
     ),
 ]
 
