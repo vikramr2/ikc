@@ -1,0 +1,177 @@
+# C++ Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# C++ Precompiled Headers
+*.gch
+*.pch
+
+# C++ Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# C++ Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# C++ Executables
+*.exe
+*.out
+*.app
+ikc
+reccs
+reccspp
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+build/
+Build/
+builds/
+cmake-build-*/
+compile_commands.json
+
+# Python Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python C extensions
+*.so
+
+# Python Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python PyInstaller
+*.manifest
+*.spec
+
+# Python Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Python Jupyter Notebook
+.ipynb_checkpoints
+
+# Python IPython
+profile_default/
+ipython_config.py
+
+# Python pyenv
+.python-version
+
+# Python pipenv
+Pipfile.lock
+
+# Python PEP 582
+__pypackages__/
+
+# Python Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Python SageMath
+*.sage.py
+
+# Python Environments
+.env
+.venv
+
+# Python Spyder
+.spyderproject
+.spyproject
+
+# Python Rope
+.ropeproject
+
+# Python mkdocs
+/site
+
+# Python mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Python Pyre
+.pyre/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Core dumps
+core
+core.*
+
+# Data files (uncomment if you want to ignore data files)
+# *.tsv
+# *.csv
+# *.txt
+# *.dat
