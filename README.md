@@ -199,7 +199,6 @@ python3 python/example.py
 
 ### Python
 - Python 3.7+
-- pandas >= 1.0.0
 
 ## Input Format
 
