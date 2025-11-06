@@ -8,16 +8,17 @@
 #include "../lib/algorithms/ikc.h"
 
 void print_usage(const char* program_name) {
-    std::cerr << "Usage: " << program_name << " -e <graph_file.tsv> -o <output.csv> [-k <min_k>] [-t <num_threads>] [-q]" << std::endl;
+    std::cerr << "Usage: " << program_name << " -e <graph_file.tsv> -o <output.csv> [-k <min_k>] [-t <num_threads>] [-q] [--tsv]" << std::endl;
     std::cerr << "Options:" << std::endl;
     std::cerr << "  -e <graph_file.tsv>  Path to input graph edge list (TSV format)" << std::endl;
     std::cerr << "  -o <output.csv>      Path to output CSV file" << std::endl;
     std::cerr << "  -k <min_k>           Minimum k value for valid clusters (default: 0)" << std::endl;
     std::cerr << "  -t <num_threads>     Number of threads (default: hardware concurrency)" << std::endl;
     std::cerr << "  -q                   Quiet mode (suppress verbose output)" << std::endl;
+    std::cerr << "  --tsv                Output as TSV (node_id cluster_id) without header" << std::endl;
 }
 
-void write_clusters_to_csv(const std::string& output_file, const std::vector<Cluster>& clusters) {
+void write_clusters_to_csv(const std::string& output_file, const std::vector<Cluster>& clusters, bool tsv_format = false) {
     std::ofstream out(output_file);
     if (!out.is_open()) {
         std::cerr << "Error: Could not open output file: " << output_file << std::endl;
@@ -28,7 +29,13 @@ void write_clusters_to_csv(const std::string& output_file, const std::vector<Clu
     for (const auto& cluster : clusters) {
         cluster_index++;
         for (uint64_t node : cluster.nodes) {
-            out << node << "," << cluster_index << "," << cluster.k_value << "," << cluster.modularity << "\n";
+            if (tsv_format) {
+                // TSV format: node_id<tab>cluster_id
+                out << node << "\t" << cluster_index << "\n";
+            } else {
+                // CSV format: node_id,cluster_index,k_value,modularity
+                out << node << "," << cluster_index << "," << cluster.k_value << "," << cluster.modularity << "\n";
+            }
         }
     }
 
@@ -42,6 +49,7 @@ int main(int argc, char* argv[]) {
     uint32_t min_k = 0;
     int num_threads = std::thread::hardware_concurrency();
     bool quiet = false;
+    bool tsv_format = false;
 
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
@@ -56,6 +64,8 @@ int main(int argc, char* argv[]) {
             num_threads = std::stoi(argv[++i]);
         } else if (arg == "-q") {
             quiet = true;
+        } else if (arg == "--tsv") {
+            tsv_format = true;
         } else if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return 0;
@@ -115,8 +125,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Total clusters found: " << clusters.size() << std::endl;
     }
 
-    // Write results to CSV
-    write_clusters_to_csv(output_file, clusters);
+    // Write results to CSV or TSV
+    write_clusters_to_csv(output_file, clusters, tsv_format);
 
     if (!quiet) {
         std::cout << "========================================" << std::endl;
