@@ -77,6 +77,12 @@ The Python wrapper uses **pybind11** to directly bind the C++ code, providing:
 
 ### Installation
 
+**Install dependencies:**
+
+```bash
+pip install -r requirements.txt
+```
+
 **Install the Python package:**
 
 ```bash
@@ -84,6 +90,12 @@ pip install -e .
 ```
 
 This will automatically compile the C++ extension and install the Python package.
+
+Alternatively, install in one step (pip will handle dependencies):
+
+```bash
+pip install -e .
+```
 
 **Verify installation:**
 
