@@ -77,6 +77,14 @@ The Python wrapper uses **pybind11** to directly bind the C++ code, providing:
 
 ### Installation
 
+**Option 1: Install from PyPI (once published):**
+
+```bash
+pip install ikc
+```
+
+**Option 2: Install from source:**
+
 **Install dependencies:**
 
 ```bash

@@ -1,7 +1,4 @@
 from setuptools import setup, Extension, find_packages
-from setuptools.command.build_ext import build_ext
-import sys
-import os
 
 class get_pybind_include:
     """Helper class to determine the pybind11 include path"""
@@ -23,11 +20,20 @@ ext_modules = [
     ),
 ]
 
+# Read the long description from README
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setup(
     name="ikc",
     version="0.1.0",
-    description="Python bindings for Iterative K-Core Clustering (IKC)",
-    author="",
+    description="Fast C++ implementation of Iterative K-Core Clustering with Python bindings",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author="Vikram Ramavarapu",
+    author_email="vikramr2@illinois.edu",
+    url="https://github.com/vikramr2/ikc",
+    license="MIT",
     package_dir={"": "python"},
     packages=find_packages(where="python"),
     ext_modules=ext_modules,
@@ -39,12 +45,23 @@ setup(
     ],
     python_requires=">=3.7",
     classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: C++",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Scientific/Engineering",
     ],
+    keywords="graph clustering k-core community-detection network-analysis",
+    project_urls={
+        "Bug Reports": "https://github.com/vikramr2/ikc/issues",
+        "Source": "https://github.com/vikramr2/ikc",
+    },
     zip_safe=False,
 )

@@ -1,0 +1,25 @@
+# Include important documentation files
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+
+# Include C++ source files and headers
+recursive-include lib *.h *.hpp *.cpp
+include python/bindings.cpp
+
+# Include example files
+include python/example.py
+
+# Exclude build artifacts and caches
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude *.so
+global-exclude *.o
+global-exclude .DS_Store
+
+# Exclude data and build directories
+prune data
+prune build
+prune dist
+prune .git
