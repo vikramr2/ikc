@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <iostream>
 #include <tuple>
+#include <atomic>
+#include <mutex>
+#include <omp.h>
 #include "../data_structures/graph.h"
 #include "kcore.h"
 #include "connected_components.h"
@@ -63,6 +66,12 @@ std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
 
     size_t L = orig_graph.num_edges;
 
+    // Build hash map for O(1) lookup of original node indices (Optimization #2)
+    std::unordered_map<uint64_t, uint32_t> orig_id_to_idx;
+    for (uint32_t i = 0; i < orig_graph.num_nodes; i++) {
+        orig_id_to_idx[orig_graph.id_map[i]] = i;
+    }
+
     // Continue finding clusters until no nodes left or max_k < min_k
     while (graph.num_nodes > 0) {
         // Compute k-core decomposition
@@ -81,15 +90,9 @@ std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
 
             for (uint32_t node = 0; node < graph.num_nodes; node++) {
                 uint64_t orig_node = orig_node_ids[node];
-                uint32_t orig_node_idx = 0;
 
-                // Find the node index in original graph
-                for (uint32_t i = 0; i < orig_graph.num_nodes; i++) {
-                    if (orig_graph.id_map[i] == orig_node) {
-                        orig_node_idx = i;
-                        break;
-                    }
-                }
+                // O(1) hash map lookup instead of O(n) linear search
+                uint32_t orig_node_idx = orig_id_to_idx[orig_node];
 
                 double modularity = calculate_singleton_modularity(orig_node_idx, orig_graph);
                 final_clusters.push_back(Cluster({orig_node}, 0, modularity));
@@ -128,20 +131,44 @@ std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
 
         std::unordered_set<uint32_t> nodes_to_remove;
 
-        // Process each component
-        for (const auto& component : components) {
+        // Atomic counters for thread-safe updates
+        std::atomic<size_t> atomic_failed_k_valid(0);
+        std::atomic<size_t> atomic_failed_modularity(0);
+
+        // Mutex for thread-safe access to shared data structures
+        std::mutex nodes_mutex, clusters_mutex, singletons_mutex;
+
+        // Process each component in parallel (Optimization #1)
+        #pragma omp parallel for schedule(dynamic)
+        for (size_t comp_idx = 0; comp_idx < components.size(); comp_idx++) {
+            const auto& component = components[comp_idx];
+
             // Check if component is k-valid
             if (!is_k_valid(component, subgraph, min_k)) {
                 if (verbose) {
+                    #pragma omp critical
                     std::cout << "Component failed k-valid check" << std::endl;
                 }
-                nbr_failed_k_valid++;
+                atomic_failed_k_valid++;
 
-                // Add nodes to removal set and singletons
+                // Collect nodes to remove and singletons (thread-local first)
+                std::vector<uint32_t> local_nodes_to_remove;
+                std::vector<uint64_t> local_singletons;
+
                 for (uint32_t subgraph_node : component) {
                     uint32_t graph_node = kcore_nodes[subgraph_node];
-                    nodes_to_remove.insert(graph_node);
-                    singletons.push_back(orig_node_ids[graph_node]);
+                    local_nodes_to_remove.push_back(graph_node);
+                    local_singletons.push_back(orig_node_ids[graph_node]);
+                }
+
+                // Add to shared structures with locks
+                {
+                    std::lock_guard<std::mutex> lock(nodes_mutex);
+                    nodes_to_remove.insert(local_nodes_to_remove.begin(), local_nodes_to_remove.end());
+                }
+                {
+                    std::lock_guard<std::mutex> lock(singletons_mutex);
+                    singletons.insert(singletons.end(), local_singletons.begin(), local_singletons.end());
                 }
                 continue;
             }
@@ -151,33 +178,62 @@ std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
 
             if (modularity <= 0) {
                 if (verbose) {
+                    #pragma omp critical
                     std::cout << "Component failed modularity check" << std::endl;
                 }
-                nbr_failed_modularity++;
+                atomic_failed_modularity++;
 
-                // Add nodes to removal set and singletons
+                // Collect nodes to remove and singletons (thread-local first)
+                std::vector<uint32_t> local_nodes_to_remove;
+                std::vector<uint64_t> local_singletons;
+
                 for (uint32_t subgraph_node : component) {
                     uint32_t graph_node = kcore_nodes[subgraph_node];
-                    nodes_to_remove.insert(graph_node);
-                    singletons.push_back(orig_node_ids[graph_node]);
+                    local_nodes_to_remove.push_back(graph_node);
+                    local_singletons.push_back(orig_node_ids[graph_node]);
+                }
+
+                // Add to shared structures with locks
+                {
+                    std::lock_guard<std::mutex> lock(nodes_mutex);
+                    nodes_to_remove.insert(local_nodes_to_remove.begin(), local_nodes_to_remove.end());
+                }
+                {
+                    std::lock_guard<std::mutex> lock(singletons_mutex);
+                    singletons.insert(singletons.end(), local_singletons.begin(), local_singletons.end());
                 }
                 continue;
             }
 
             // Component is valid, add to clusters
             std::vector<uint64_t> cluster_nodes;
+            std::vector<uint32_t> local_nodes_to_remove;
+
             for (uint32_t subgraph_node : component) {
                 uint32_t graph_node = kcore_nodes[subgraph_node];
                 cluster_nodes.push_back(orig_node_ids[graph_node]);
-                nodes_to_remove.insert(graph_node);
+                local_nodes_to_remove.push_back(graph_node);
             }
 
             if (verbose) {
+                #pragma omp critical
                 std::cout << "Adding cluster with " << cluster_nodes.size() << " nodes" << std::endl;
             }
 
-            final_clusters.push_back(Cluster(cluster_nodes, max_k, modularity));
+            // Add to shared structures with locks
+            {
+                std::lock_guard<std::mutex> lock(clusters_mutex);
+                final_clusters.push_back(Cluster(cluster_nodes, max_k, modularity));
+            }
+            {
+                std::lock_guard<std::mutex> lock(nodes_mutex);
+                nodes_to_remove.insert(local_nodes_to_remove.begin(), local_nodes_to_remove.end());
+            }
         }
+
+        // Update counters from atomic values
+        nbr_failed_k_valid += atomic_failed_k_valid.load();
+        nbr_failed_modularity += atomic_failed_modularity.load();
 
         // Print component size statistics
         if (verbose) {
