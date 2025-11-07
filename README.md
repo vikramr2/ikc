@@ -6,17 +6,17 @@ Fast C++ implementation of Iterative K-Core Clustering with Python wrapper.
 
 ```
 ikc/
-├── app/          # C++ application
-├── lib/          # C++ libraries
-│   ├── algorithms/    # Core IKC algorithms
-│   ├── data_structures/ # Graph data structures
-│   └── io/            # Graph I/O utilities
-├── python/       # Python wrapper
-│   ├── ikc/      # Python package
-│   ├── bindings.cpp  # pybind11 C++ bindings
-│   └── example.py
-├── data/         # Test datasets
-└── build/        # Build directory
+├── app/                     # C++ application
+├── lib/                     # C++ libraries
+│   ├── algorithms/          # Core IKC algorithms
+│   ├── data_structures/     # Graph data structures
+│   └── io/                  # Graph I/O utilities
+├── python/                  # Python wrapper
+│   ├── ikc/                 # Python package
+│   ├── bindings.cpp         # pybind11 C++ bindings
+│   └── example.py           # Example Python usage
+├── data/                    # Test datasets
+└── build/                   # Build directory
 ```
 
 ## Building the C++ Executable
