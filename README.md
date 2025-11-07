@@ -8,8 +8,12 @@ Fast C++ implementation of Iterative K-Core Clustering with Python wrapper.
 ikc/
 ├── app/          # C++ application
 ├── lib/          # C++ libraries
+│   ├── algorithms/    # Core IKC algorithms
+│   ├── data_structures/ # Graph data structures
+│   └── io/            # Graph I/O utilities
 ├── python/       # Python wrapper
 │   ├── ikc/      # Python package
+│   ├── bindings.cpp  # pybind11 C++ bindings
 │   └── example.py
 ├── data/         # Test datasets
 └── build/        # Build directory
@@ -150,16 +154,30 @@ Load a graph from a TSV edge list file.
 **Returns:**
 - `Graph`: Graph object ready for clustering
 
-#### `Graph.ikc(min_k=0, verbose=False)`
+#### `Graph.ikc(min_k=0, verbose=False, progress_bar=False)`
 
 Run the Iterative K-Core Clustering algorithm.
 
 **Parameters:**
 - `min_k` (int): Minimum k value for valid clusters (default: 0)
 - `verbose` (bool): Print algorithm progress (default: False)
+- `progress_bar` (bool): Display tqdm progress bar tracking k-core decomposition from initial max k (0%) to min_k (100%) (default: False)
 
 **Returns:**
 - `ClusterResult`: Object containing the clustering results
+
+**Progress Bar:**
+When `progress_bar=True`, a tqdm progress bar displays the k-core decomposition progress:
+- **Initial max k-core value** → **0% progress**
+- **Target min_k value** → **100% progress**
+
+For example, if you run `ikc(min_k=10)` and the first core found is k=40:
+- k=40 → 0% progress (start)
+- k=30 → 33% progress
+- k=20 → 66% progress
+- k=10 → 100% progress (complete)
+
+The progress bar shows the current k value and processing speed.
 
 #### `ClusterResult.save(filename, tsv=False)`
 
@@ -185,8 +203,9 @@ import ikc
 g = ikc.load_graph('data/cit_hepph.tsv', num_threads=4)
 print(g)  # Graph(file='...', nodes=34546, edges=420877)
 
-# Run IKC with min_k=10
-clusters = g.ikc(min_k=10)
+# Run IKC with min_k=10 and progress bar
+clusters = g.ikc(min_k=10, progress_bar=True)
+# Output: IKC Progress: 100%|██████████| 20/20 [00:00<00:00, 84.99k-core levels/s, current_k=10]
 
 # Print summary
 print(clusters)  # ClusterResult(nodes=34546, clusters=27639)
@@ -223,6 +242,7 @@ python3 python/example.py
 ### Python
 - Python 3.7+
 - pybind11 >= 2.6.0 (automatically installed with `pip install`)
+- tqdm >= 4.0.0 (for progress bar feature, automatically installed with `pip install`)
 
 ## Input Format
 
