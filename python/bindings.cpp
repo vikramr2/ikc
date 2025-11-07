@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <pybind11/functional.h>
 #include "../lib/io/graph_io.h"
 #include "../lib/algorithms/ikc.h"
 #include "../lib/data_structures/graph.h"
@@ -48,5 +49,6 @@ PYBIND11_MODULE(_ikc, m) {
           py::arg("min_k") = 0,
           py::arg("orig_graph"),
           py::arg("verbose") = false,
+          py::arg("progress_callback") = nullptr,
           "Run Iterative K-Core Clustering algorithm");
 }

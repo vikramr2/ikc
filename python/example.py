@@ -26,8 +26,9 @@ print()
 
 # Run IKC with min_k=10
 print("Running IKC algorithm with min_k=10...")
+print("(Note: Add progress_bar=True to see tqdm progress bar)")
 print()
-clusters = g.ikc(min_k=10, verbose=True)
+clusters = g.ikc(min_k=10, verbose=False, progress_bar=True)
 print()
 
 # Print results

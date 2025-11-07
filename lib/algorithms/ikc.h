@@ -8,6 +8,7 @@
 #include <tuple>
 #include <atomic>
 #include <mutex>
+#include <functional>
 #include <omp.h>
 #include "../data_structures/graph.h"
 #include "kcore.h"
@@ -54,7 +55,8 @@ Graph remove_nodes_and_compact(const Graph& graph,
 std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
                                                    uint32_t min_k,
                                                    const Graph& orig_graph,
-                                                   bool verbose = false) {
+                                                   bool verbose = false,
+                                                   std::function<void(uint32_t)> progress_callback = nullptr) {
     std::vector<Cluster> final_clusters;
     std::vector<uint64_t> singletons;
 
@@ -72,11 +74,26 @@ std::vector<Cluster> iterative_kcore_decomposition(Graph graph,
         orig_id_to_idx[orig_graph.id_map[i]] = i;
     }
 
+    // Track initial max_k for progress reporting
+    bool first_iteration = true;
+    uint32_t initial_max_k = 0;
+
     // Continue finding clusters until no nodes left or max_k < min_k
     while (graph.num_nodes > 0) {
         // Compute k-core decomposition
         KCoreResult kcore = compute_kcore_decomposition(graph);
         uint32_t max_k = kcore.max_core;
+
+        // Track initial max_k on first iteration
+        if (first_iteration) {
+            initial_max_k = max_k;
+            first_iteration = false;
+        }
+
+        // Call progress callback if provided
+        if (progress_callback) {
+            progress_callback(max_k);
+        }
 
         if (verbose) {
             std::cout << "Max k-core: " << max_k << ", nodes in graph: " << graph.num_nodes << std::endl;

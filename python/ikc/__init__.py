@@ -5,6 +5,12 @@ from pathlib import Path
 from typing import Optional, List, Tuple
 import _ikc
 
+try:
+    from tqdm import tqdm
+    TQDM_AVAILABLE = True
+except ImportError:
+    TQDM_AVAILABLE = False
+
 
 class ClusterResult:
     """
@@ -118,19 +124,60 @@ class Graph:
 
     def ikc(self,
             min_k: int = 0,
-            verbose: bool = False) -> ClusterResult:
+            verbose: bool = False,
+            progress_bar: bool = False) -> ClusterResult:
         """
         Run the Iterative K-Core Clustering algorithm.
 
         Args:
             min_k: Minimum k value for valid clusters (default: 0)
             verbose: If True, print algorithm progress
+            progress_bar: If True, display tqdm progress bar tracking k-core decomposition
+                         from initial max k (0%) to min_k (100%)
 
         Returns:
             ClusterResult object containing the clustering results
         """
-        # Run IKC algorithm using C++ binding
-        clusters = _ikc.run_ikc(self._graph, min_k, self._graph, verbose)
+        # Setup progress bar if requested
+        pbar = None
+        initial_k = [None]  # Use list to allow modification in nested function
+
+        def progress_callback(current_k: int):
+            """Callback function to update progress bar"""
+            if pbar is None:
+                return
+
+            # Set initial k on first call
+            if initial_k[0] is None:
+                initial_k[0] = current_k
+                # Set up progress bar range from initial_k to min_k
+                pbar.total = max(1, initial_k[0] - min_k)
+                pbar.n = 0
+                pbar.refresh()
+            else:
+                # Calculate progress: how far we've gone from initial_k toward min_k
+                progress = initial_k[0] - current_k
+                pbar.n = progress
+                pbar.set_postfix({'current_k': current_k})
+                pbar.refresh()
+
+        if progress_bar:
+            if not TQDM_AVAILABLE:
+                import warnings
+                warnings.warn("tqdm is not installed. Install it with 'pip install tqdm' to use progress_bar feature.")
+                callback = None
+            else:
+                pbar = tqdm(total=1, desc="IKC Progress", unit="k-core levels")
+                callback = progress_callback
+        else:
+            callback = None
+
+        try:
+            # Run IKC algorithm using C++ binding
+            clusters = _ikc.run_ikc(self._graph, min_k, self._graph, verbose, callback)
+        finally:
+            if pbar is not None:
+                pbar.close()
 
         return ClusterResult(clusters)
 

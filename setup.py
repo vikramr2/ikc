@@ -62,6 +62,7 @@ setup(
     ext_modules=ext_modules,
     install_requires=[
         "pybind11>=2.6.0",
+        "tqdm>=4.0.0",
     ],
     setup_requires=[
         "pybind11>=2.6.0",
