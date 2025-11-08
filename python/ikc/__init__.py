@@ -122,6 +122,102 @@ class Graph:
         """Number of edges in the graph."""
         return self._graph.num_edges
 
+    def compute_kcore_decomposition(self):
+        """
+        Compute k-core decomposition for the graph.
+
+        This returns core numbers for all nodes, which can be reused for multiple
+        minimum k-core searches to avoid redundant computation.
+
+        Returns:
+            KCoreResult object with core_numbers (list) and max_core (int)
+
+        Example:
+            >>> g = ikc.load_graph('network.tsv')
+            >>> kcore = g.compute_kcore_decomposition()
+            >>> print(f"Max core: {kcore.max_core}")
+            >>> # Now use cached core numbers for multiple searches
+            >>> result1 = g.find_minimum_kcore(k=5, core_numbers=kcore.core_numbers)
+            >>> result2 = g.find_minimum_kcore(k=10, core_numbers=kcore.core_numbers)
+        """
+        return _ikc.compute_kcore_decomposition(self._graph)
+
+    def find_minimum_kcore(self, k: int, core_numbers: Optional[List[int]] = None) -> Optional[List[int]]:
+        """
+        Find the minimum k-core in the graph (smallest k-core by number of nodes).
+
+        This implements the IBB algorithm from "Efficient Exact Minimum k-Core Search
+        in Real-World Graphs" (CIKM 2023). It finds the smallest subgraph where every
+        node has at least k neighbors within the subgraph.
+
+        Args:
+            k: Minimum degree requirement
+            core_numbers: Optional pre-computed core numbers (from compute_kcore_decomposition).
+                         If provided, avoids redundant k-core decomposition.
+
+        Returns:
+            List of node IDs in the minimum k-core, or None if no k-core exists
+
+        Example:
+            >>> g = ikc.load_graph('network.tsv')
+            >>> min_kcore = g.find_minimum_kcore(k=3)
+            >>> if min_kcore:
+            ...     print(f"Found minimum 3-core with {len(min_kcore)} nodes")
+
+            >>> # Reuse core decomposition for multiple searches
+            >>> kcore = g.compute_kcore_decomposition()
+            >>> result1 = g.find_minimum_kcore(k=5, core_numbers=kcore.core_numbers)
+            >>> result2 = g.find_minimum_kcore(k=10, core_numbers=kcore.core_numbers)
+        """
+        if core_numbers is not None:
+            result = _ikc.find_minimum_kcore(self._graph, k, core_numbers)
+        else:
+            result = _ikc.find_minimum_kcore(self._graph, k)
+
+        if result.found:
+            return result.nodes
+        return None
+
+    def find_minimum_kcore_containing_node(self, query_node: int, k: int,
+                                          core_numbers: Optional[List[int]] = None) -> Optional[List[int]]:
+        """
+        Find the minimum k-core containing a specific query node.
+
+        This is useful when you want to find the most condensed cohesive community
+        around a particular node of interest.
+
+        Args:
+            query_node: The node that must be included in the k-core
+            k: Minimum degree requirement
+            core_numbers: Optional pre-computed core numbers (from compute_kcore_decomposition).
+                         If provided, avoids redundant k-core decomposition.
+
+        Returns:
+            List of node IDs in the minimum k-core containing query_node,
+            or None if no such k-core exists
+
+        Example:
+            >>> g = ikc.load_graph('network.tsv')
+            >>> min_kcore = g.find_minimum_kcore_containing_node(query_node=42, k=3)
+            >>> if min_kcore:
+            ...     print(f"Found minimum 3-core around node 42 with {len(min_kcore)} nodes")
+            ... else:
+            ...     print("Node 42 is not in any 3-core")
+
+            >>> # Reuse core decomposition for multiple queries
+            >>> kcore = g.compute_kcore_decomposition()
+            >>> result1 = g.find_minimum_kcore_containing_node(42, k=5, core_numbers=kcore.core_numbers)
+            >>> result2 = g.find_minimum_kcore_containing_node(100, k=5, core_numbers=kcore.core_numbers)
+        """
+        if core_numbers is not None:
+            result = _ikc.find_minimum_kcore_containing_node(self._graph, query_node, k, core_numbers)
+        else:
+            result = _ikc.find_minimum_kcore_containing_node(self._graph, query_node, k)
+
+        if result.found:
+            return result.nodes
+        return None
+
     def ikc(self,
             min_k: int = 0,
             verbose: bool = False,
