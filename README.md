@@ -243,6 +243,8 @@ python3 examples/maximal_kcore_example.py
 
 ## Maximal K-Core Search
 
+**⚠️ Beta Feature**: This functionality is currently in beta and under active development.
+
 The maximal k-core search finds the largest k-core containing a given query node. This is useful for discovering cohesive communities around specific nodes of interest.
 
 ### Overview
@@ -578,6 +580,7 @@ See `examples/streaming_example.py` for a complete demonstration.
 
 ### References
 
+- Eleanor Wedell, Minhyuk Park, Dmitriy Korobskiy, Tandy Warnow, George Chacko; Center–periphery structure in research communities. *Quantitative Science Studies 2022*; 3 (1): 289–314.
 - Sariyüce, A. E., Gedik, B., Jacques-Silva, G., Wu, K. L., & Çatalyürek, Ü. V. (2013).
   "Streaming algorithms for k-core decomposition."
   *Proceedings of the VLDB Endowment*, 6(6), 433-444.
