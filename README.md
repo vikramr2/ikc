@@ -13,8 +13,8 @@ ikc/
 │   └── io/                  # Graph I/O utilities
 ├── python/                  # Python wrapper
 │   ├── ikc/                 # Python package
-│   ├── bindings.cpp         # pybind11 C++ bindings
-│   └── example.py           # Example Python usage
+│   └── bindings.cpp         # pybind11 C++ bindings
+├── examples/                # Example Python scripts
 ├── data/                    # Test datasets
 └── build/                   # Build directory
 ```
@@ -226,11 +226,128 @@ print(f"Total clusters: {clusters.num_clusters}")
 print(f"Total nodes: {clusters.num_nodes}")
 ```
 
-### Run Example Script
+### Run Example Scripts
 
 ```bash
-python3 python/example.py
+# Basic IKC example
+python3 examples/example.py
+
+# Streaming IKC example
+python3 examples/streaming_example.py
+
+# Maximal k-core search example
+python3 examples/maximal_kcore_example.py
 ```
+
+---
+
+## Maximal K-Core Search
+
+The maximal k-core search finds the largest k-core containing a given query node. This is useful for discovering cohesive communities around specific nodes of interest.
+
+### Overview
+
+Given a query node, the algorithm finds the subgraph containing that node which maximizes k, where k is the core number of the query node. This represents the most cohesive community that the node belongs to.
+
+**Key Properties:**
+- The maximal k is simply the core number of the query node
+- Very efficient: O(n+m) for BFS after k-core decomposition
+- Can cache k-core decomposition for multiple queries
+- Perfect for finding tight-knit communities around specific nodes
+
+### Python API
+
+#### Basic Usage
+
+```python
+import ikc
+
+# Load graph
+g = ikc.load_graph('network.tsv')
+
+# Find maximal k-core for a query node
+result = g.find_maximal_kcore(query_node=1000)
+
+if result:
+    print(f"Node {query_node} belongs to a {result['k']}-core")
+    print(f"Community size: {result['size']} nodes")
+    print(f"Nodes in community: {result['nodes']}")
+```
+
+#### Efficient Multi-Query Pattern (with Caching)
+
+```python
+# Compute k-core decomposition once
+kcore = g.compute_kcore_decomposition()
+print(f"Max core in graph: {kcore.max_core}")
+
+# Query multiple nodes using cached decomposition
+query_nodes = [100, 500, 1000, 1500, 2000]
+
+for node in query_nodes:
+    result = g.find_maximal_kcore(node, core_numbers=kcore.core_numbers)
+    if result:
+        print(f"Node {node}: {result['k']}-core with {result['size']} nodes")
+```
+
+### API Reference
+
+#### `Graph.compute_kcore_decomposition() -> KCoreResult`
+
+Compute k-core decomposition and return core numbers for all nodes.
+
+**Returns:**
+- `KCoreResult`: Object with `core_numbers` (list of core numbers) and `max_core` (maximum core value)
+
+#### `Graph.find_maximal_kcore(query_node, core_numbers=None) -> dict`
+
+Find the maximal k-core containing a query node.
+
+**Parameters:**
+- `query_node` (int): The node whose maximal k-core to find
+- `core_numbers` (list, optional): Pre-computed core numbers from `compute_kcore_decomposition()` (recommended for multiple queries)
+
+**Returns:**
+- Dictionary with keys:
+  - `nodes`: List of node IDs in the maximal k-core
+  - `k`: The k value (core number of the query node)
+  - `size`: Number of nodes in the k-core
+- Returns `None` if node not found in graph
+
+### Example Use Cases
+
+**Finding Cohesive Communities:**
+```python
+nodes_of_interest = [100, 200, 300]
+kcore = g.compute_kcore_decomposition()
+
+for node in nodes_of_interest:
+    result = g.find_maximal_kcore(node, core_numbers=kcore.core_numbers)
+    if result:
+        print(f"Node {node} is in a {result['k']}-core")
+        print(f"  Community size: {result['size']} nodes")
+        print(f"  Interpretation: This node is in a tight-knit group where")
+        print(f"  everyone has at least {result['k']} connections within the group")
+```
+
+**Finding High-Coreness Nodes:**
+```python
+kcore = g.compute_kcore_decomposition()
+
+# Find nodes with maximum core number
+max_core_nodes = [i for i, cn in enumerate(kcore.core_numbers)
+                  if cn == kcore.max_core]
+print(f"Nodes in the {kcore.max_core}-core: {len(max_core_nodes)} nodes")
+
+# Examine their communities
+sample_node = max_core_nodes[0]
+result = g.find_maximal_kcore(sample_node, core_numbers=kcore.core_numbers)
+print(f"Community size for highest coreness node: {result['size']} nodes")
+```
+
+See `examples/maximal_kcore_example.py` for complete examples.
+
+---
 
 ## Requirements
 
@@ -422,7 +539,7 @@ result = g.commit_batch()
 print(f"Batch complete: {result.num_clusters} clusters")
 ```
 
-See `python/streaming_example.py` for a complete demonstration.
+See `examples/streaming_example.py` for a complete demonstration.
 
 ### Performance Characteristics
 

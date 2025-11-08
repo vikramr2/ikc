@@ -5,7 +5,7 @@
 #include "../lib/io/graph_io.h"
 #include "../lib/algorithms/ikc.h"
 #include "../lib/algorithms/streaming_ikc.h"
-#include "../lib/algorithms/minimum_kcore_search.h"
+#include "../lib/algorithms/maximal_kcore_search.h"
 #include "../lib/data_structures/graph.h"
 
 namespace py = pybind11;
@@ -137,50 +137,35 @@ PYBIND11_MODULE(_ikc, m) {
                    " max_core=" + std::to_string(s.get_max_core()) + ">";
         });
 
-    // Bind MinimumKCoreResult class
-    py::class_<ikc::MinimumKCoreResult>(m, "MinimumKCoreResult")
+    // Bind MaximalKCoreResult class
+    py::class_<ikc::MaximalKCoreResult>(m, "MaximalKCoreResult")
         .def(py::init<>())
-        .def_readonly("nodes", &ikc::MinimumKCoreResult::nodes)
-        .def_readonly("k_value", &ikc::MinimumKCoreResult::k_value)
-        .def_readonly("size", &ikc::MinimumKCoreResult::size)
-        .def_readonly("found", &ikc::MinimumKCoreResult::found)
-        .def("__repr__", [](const ikc::MinimumKCoreResult& r) -> std::string {
+        .def_readonly("nodes", &ikc::MaximalKCoreResult::nodes)
+        .def_readonly("k_value", &ikc::MaximalKCoreResult::k_value)
+        .def_readonly("size", &ikc::MaximalKCoreResult::size)
+        .def_readonly("found", &ikc::MaximalKCoreResult::found)
+        .def("__repr__", [](const ikc::MaximalKCoreResult& r) -> std::string {
             if (r.found) {
-                return "<MinimumKCoreResult found=True size=" + std::to_string(r.size) +
-                       " k=" + std::to_string(r.k_value) + ">";
+                return "<MaximalKCoreResult found=True k=" + std::to_string(r.k_value) +
+                       " size=" + std::to_string(r.size) + ">";
             } else {
-                return std::string("<MinimumKCoreResult found=False>");
+                return std::string("<MaximalKCoreResult found=False>");
             }
         });
 
-    // Bind minimum k-core search functions
-    m.def("find_minimum_kcore",
-          py::overload_cast<const Graph&, int>(&ikc::find_minimum_kcore),
-          py::arg("graph"),
-          py::arg("k"),
-          "Find minimum k-core in the graph (without query node)");
-
-    m.def("find_minimum_kcore",
-          py::overload_cast<const Graph&, int, const std::vector<uint32_t>&>(&ikc::find_minimum_kcore),
-          py::arg("graph"),
-          py::arg("k"),
-          py::arg("core_numbers"),
-          "Find minimum k-core with cached core numbers");
-
-    m.def("find_minimum_kcore_containing_node",
-          py::overload_cast<const Graph&, uint64_t, int>(&ikc::find_minimum_kcore_containing_node),
+    // Bind maximal k-core search functions
+    m.def("find_maximal_kcore",
+          py::overload_cast<const Graph&, uint64_t>(&ikc::find_maximal_kcore),
           py::arg("graph"),
           py::arg("query_node"),
-          py::arg("k"),
-          "Find minimum k-core containing a specific query node");
+          "Find maximal k-core containing a query node");
 
-    m.def("find_minimum_kcore_containing_node",
-          py::overload_cast<const Graph&, uint64_t, int, const std::vector<uint32_t>&>(&ikc::find_minimum_kcore_containing_node),
+    m.def("find_maximal_kcore",
+          py::overload_cast<const Graph&, uint64_t, const std::vector<uint32_t>&>(&ikc::find_maximal_kcore),
           py::arg("graph"),
           py::arg("query_node"),
-          py::arg("k"),
           py::arg("core_numbers"),
-          "Find minimum k-core containing a query node with cached core numbers");
+          "Find maximal k-core containing a query node with cached core numbers");
 
     // Expose k-core decomposition result structure
     py::class_<KCoreResult>(m, "KCoreResult")
