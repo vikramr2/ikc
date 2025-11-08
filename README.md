@@ -328,8 +328,24 @@ result = g.commit_batch()
 # More efficient than separate calls
 result = g.update(
     new_edges=[(1, 2), (3, 4)],
-    new_nodes=[100, 101]
+    new_nodes=[1, 2, 3, 4]  # Include all nodes referenced in edges
 )
+```
+
+**Important Note**: When using `update()`, all nodes referenced in `new_edges` must either:
+1. Already exist in the graph, OR
+2. Be included in the `new_nodes` list
+
+For example, this will raise an error:
+```python
+# ERROR: Nodes 100 and 200 don't exist and aren't in new_nodes
+result = g.update(new_edges=[(100, 200)])  # ValueError!
+```
+
+Correct usage:
+```python
+# Include all new nodes
+result = g.update(new_edges=[(100, 200)], new_nodes=[100, 200])  # ✓
 ```
 
 ### StreamingGraph API Reference
@@ -358,6 +374,8 @@ g = ikc.StreamingGraph(graph_file, num_threads=None, verbose=False)
 **`update(new_edges=None, new_nodes=None, verbose=False) -> ClusterResult`**
 - Add both edges and nodes in a single operation
 - More efficient than separate calls
+- **Important**: All nodes referenced in `new_edges` must be included in `new_nodes` (if they don't already exist in the graph)
+- Raises `ValueError` if an edge references a non-existent node not in `new_nodes`
 
 **`begin_batch()`**
 - Enter batch mode - accumulate updates without recomputation

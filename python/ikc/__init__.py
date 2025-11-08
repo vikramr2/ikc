@@ -362,6 +362,9 @@ class StreamingGraph:
 
         More efficient than separate add_edges() and add_nodes() calls.
 
+        Important: All nodes referenced in new_edges must either already exist in the graph
+        or be included in new_nodes.
+
         Args:
             new_edges: List of (node_id, node_id) tuples (optional)
             new_nodes: List of node IDs (optional)
@@ -372,6 +375,14 @@ class StreamingGraph:
 
         Raises:
             RuntimeError: If ikc() hasn't been called yet
+            ValueError: If an edge references a node that doesn't exist and isn't in new_nodes
+
+        Example:
+            # Correct: all edge nodes are included
+            g.update(new_edges=[(100, 200)], new_nodes=[100, 200])
+
+            # Error: nodes 100, 200 don't exist and aren't in new_nodes
+            g.update(new_edges=[(100, 200)])  # ValueError!
         """
         if self._streaming_ikc is None:
             raise RuntimeError("Must call ikc() before update(). Streaming state not initialized.")
@@ -379,9 +390,16 @@ class StreamingGraph:
         edges = new_edges if new_edges is not None else []
         nodes = new_nodes if new_nodes is not None else []
 
-        clusters = self._streaming_ikc.update(edges, nodes, verbose)
-        self._current_result = ClusterResult(clusters)
-        return self._current_result
+        try:
+            clusters = self._streaming_ikc.update(edges, nodes, verbose)
+            self._current_result = ClusterResult(clusters)
+            return self._current_result
+        except Exception as e:
+            # Re-raise with more helpful context
+            error_msg = str(e)
+            if "references non-existent node" in error_msg:
+                raise ValueError(error_msg) from e
+            raise
 
     def begin_batch(self):
         """

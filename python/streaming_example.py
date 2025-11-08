@@ -64,8 +64,8 @@ print()
 # Combined update
 print("3. Combined update (edges + nodes)...")
 result = g.update(
-    new_edges=[(500, 600), (501, 601)],
-    new_nodes=[888888, 888887],
+    new_edges=[(888888, 600), (501, 601)],
+    new_nodes=[888888, 888887, 600, 501, 601],  # Include all nodes used in edges
     verbose=False
 )
 print(f"   Updated clustering: {result.num_clusters} clusters")

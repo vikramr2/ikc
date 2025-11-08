@@ -102,6 +102,17 @@ def test_error_handling():
         result = g.add_edges([(0, 1)])
         print(f"  ✓ Edge addition works after initialization")
 
+        # Test update() with missing nodes
+        try:
+            g.update(new_edges=[(9999, 8888)])  # Nodes don't exist
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            print(f"  ✓ Correctly raised ValueError for missing nodes: {str(e)[:80]}...")
+
+        # Test update() with nodes in new_nodes - should work
+        result = g.update(new_edges=[(9999, 8888)], new_nodes=[9999, 8888])
+        print(f"  ✓ Update works when all nodes are included")
+
     finally:
         os.unlink(graph_file)
 

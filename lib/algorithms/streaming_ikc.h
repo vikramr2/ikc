@@ -522,6 +522,29 @@ public:
                                const std::vector<uint64_t>& nodes,
                                bool verbose = false) {
 
+        // Validate that all edge endpoints exist or will be added
+        if (!edges.empty()) {
+            std::unordered_set<uint64_t> nodes_to_add(nodes.begin(), nodes.end());
+
+            for (const auto& [u, v] : edges) {
+                bool u_exists = graph_.node_map.count(u) || nodes_to_add.count(u);
+                bool v_exists = graph_.node_map.count(v) || nodes_to_add.count(v);
+
+                if (!u_exists || !v_exists) {
+                    std::string missing_nodes;
+                    if (!u_exists) missing_nodes += std::to_string(u);
+                    if (!u_exists && !v_exists) missing_nodes += ", ";
+                    if (!v_exists) missing_nodes += std::to_string(v);
+
+                    throw std::invalid_argument(
+                        "Edge (" + std::to_string(u) + ", " + std::to_string(v) +
+                        ") references non-existent node(s): " + missing_nodes +
+                        ". All nodes in new_edges must either exist in the graph or be included in new_nodes."
+                    );
+                }
+            }
+        }
+
         // Add nodes first (without recomputation)
         if (!nodes.empty()) {
             add_nodes(nodes, false, verbose);
@@ -529,7 +552,26 @@ public:
 
         // Then add edges (with recomputation)
         if (!edges.empty()) {
-            return add_edges(edges, true, verbose);
+            auto result = add_edges(edges, true, verbose);
+
+            // Ensure any nodes that weren't clustered get singleton clusters
+            for (uint64_t orig_id : nodes) {
+                if (graph_.node_map.count(orig_id)) {
+                    uint32_t internal_id = graph_.node_map.at(orig_id);
+
+                    // Create singleton if not already in a cluster
+                    if (cluster_assignment_[internal_id] == UINT32_MAX) {
+                        clusters_.push_back(Cluster({orig_id}, 0, 0.0));
+                    }
+                }
+            }
+
+            // Update assignments after adding singletons
+            if (!nodes.empty()) {
+                update_cluster_assignments();
+            }
+
+            return clusters_;
         }
 
         // If only nodes were added, recompute now
