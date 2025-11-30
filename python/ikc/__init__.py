@@ -11,6 +11,138 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
+import csv
+
+
+class KCoreDecomposition:
+    """
+    Wrapper for k-core decomposition results with save/load functionality.
+    """
+
+    def __init__(self, kcore_result: Optional[_ikc.KCoreResult] = None):
+        """
+        Initialize KCoreDecomposition.
+
+        Args:
+            kcore_result: KCoreResult object from C++ (optional)
+        """
+        self._kcore = kcore_result
+
+    @property
+    def core_numbers(self) -> List[int]:
+        """Get the core number for each node."""
+        return self._kcore.core_numbers if self._kcore else []
+
+    @property
+    def max_core(self) -> int:
+        """Get the maximum core number in the graph."""
+        return self._kcore.max_core if self._kcore else 0
+
+    def save(self, filename: str):
+        """
+        Save k-core decomposition to a CSV file.
+
+        The CSV format is: node_id,core_number
+        with a header row.
+
+        Args:
+            filename: Output file path
+        """
+        if self._kcore is None:
+            raise ValueError("No k-core decomposition to save")
+
+        with open(filename, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['node_id', 'core_number'])
+            for node_id, core_num in enumerate(self._kcore.core_numbers):
+                writer.writerow([node_id, core_num])
+
+        print(f"K-core decomposition saved to: {filename}")
+
+    @staticmethod
+    def load(filename: str, num_nodes: Optional[int] = None) -> 'KCoreDecomposition':
+        """
+        Load k-core decomposition from a CSV file.
+
+        The CSV should have format: node_id,core_number
+        Can include a header row (will be auto-detected).
+
+        Args:
+            filename: Input file path
+            num_nodes: Expected number of nodes (optional, will be inferred if not provided)
+
+        Returns:
+            KCoreDecomposition object
+
+        Example:
+            >>> kcore = KCoreDecomposition.load('kcore.csv')
+            >>> print(f"Max core: {kcore.max_core}")
+        """
+        core_numbers = {}
+        max_node_id = -1
+
+        with open(filename, 'r') as f:
+            reader = csv.reader(f)
+
+            # Try to detect and skip header
+            first_row = next(reader, None)
+            if first_row is None:
+                raise ValueError(f"Empty file: {filename}")
+
+            # Check if first row is a header
+            try:
+                node_id = int(first_row[0])
+                core_num = int(first_row[1])
+                # It's data, not a header
+                core_numbers[node_id] = core_num
+                max_node_id = max(max_node_id, node_id)
+            except (ValueError, IndexError):
+                # It's a header, skip it
+                pass
+
+            # Read remaining rows
+            for row in reader:
+                try:
+                    node_id = int(row[0])
+                    core_num = int(row[1])
+                    core_numbers[node_id] = core_num
+                    max_node_id = max(max_node_id, node_id)
+                except (ValueError, IndexError) as e:
+                    raise ValueError(f"Invalid row in {filename}: {row}") from e
+
+        if not core_numbers:
+            raise ValueError(f"No valid data found in {filename}")
+
+        # Determine number of nodes
+        if num_nodes is None:
+            num_nodes = max_node_id + 1
+        elif max_node_id >= num_nodes:
+            raise ValueError(f"Node ID {max_node_id} exceeds expected num_nodes {num_nodes}")
+
+        # Create KCoreResult and populate it
+        kcore_result = _ikc.KCoreResult(num_nodes)
+
+        # Fill in core numbers (default to 0 for missing nodes)
+        for i in range(num_nodes):
+            kcore_result.core_numbers[i] = core_numbers.get(i, 0)
+
+        # Calculate max_core
+        kcore_result.max_core = max(core_numbers.values()) if core_numbers else 0
+
+        result = KCoreDecomposition(kcore_result)
+        print(f"K-core decomposition loaded from: {filename}")
+        print(f"  Nodes: {num_nodes}, Max core: {result.max_core}")
+        return result
+
+    def __repr__(self):
+        if self._kcore is None:
+            return "KCoreDecomposition(empty)"
+        return f"KCoreDecomposition(nodes={len(self.core_numbers)}, max_core={self.max_core})"
+
+    def __len__(self):
+        """Return number of nodes."""
+        return len(self.core_numbers) if self._kcore else 0
+
 
 class ClusterResult:
     """
@@ -66,6 +198,78 @@ class ClusterResult:
                         f.write(f"{node_id},{cluster_idx},{cluster.k_value},{cluster.modularity}\n")
 
         print(f"Results saved to: {filename}")
+
+    @staticmethod
+    def load(filename: str) -> 'ClusterResult':
+        """
+        Load clustering results from a CSV file.
+
+        The CSV should have format: node_id,cluster_id,k_value,modularity
+        Can include a header row (will be auto-detected).
+
+        Args:
+            filename: Input file path
+
+        Returns:
+            ClusterResult object
+
+        Example:
+            >>> # Load previously computed clustering
+            >>> clusters = ClusterResult.load('results.csv')
+            >>> print(f"Loaded {clusters.num_clusters} clusters with {clusters.num_nodes} nodes")
+        """
+        cluster_data = {}  # cluster_id -> {'nodes': [...], 'k_value': ..., 'modularity': ...}
+
+        with open(filename, 'r') as f:
+            reader = csv.reader(f)
+
+            # Try to detect and skip header
+            first_row = next(reader, None)
+            if first_row is None:
+                raise ValueError(f"Empty file: {filename}")
+
+            # Check if first row is a header
+            try:
+                node_id = int(first_row[0])
+                cluster_id = int(first_row[1])
+                k_value = int(first_row[2])
+                modularity = float(first_row[3])
+                # It's data, not a header - process it
+                if cluster_id not in cluster_data:
+                    cluster_data[cluster_id] = {'nodes': [], 'k_value': k_value, 'modularity': modularity}
+                cluster_data[cluster_id]['nodes'].append(node_id)
+            except (ValueError, IndexError):
+                # It's a header, skip it
+                pass
+
+            # Read remaining rows
+            for row in reader:
+                try:
+                    node_id = int(row[0])
+                    cluster_id = int(row[1])
+                    k_value = int(row[2])
+                    modularity = float(row[3])
+
+                    if cluster_id not in cluster_data:
+                        cluster_data[cluster_id] = {'nodes': [], 'k_value': k_value, 'modularity': modularity}
+                    cluster_data[cluster_id]['nodes'].append(node_id)
+                except (ValueError, IndexError) as e:
+                    raise ValueError(f"Invalid row in {filename}: {row}") from e
+
+        if not cluster_data:
+            raise ValueError(f"No valid data found in {filename}")
+
+        # Convert to Cluster objects
+        clusters = []
+        for cluster_id in sorted(cluster_data.keys()):
+            data = cluster_data[cluster_id]
+            cluster = _ikc.Cluster(data['nodes'], data['k_value'], data['modularity'])
+            clusters.append(cluster)
+
+        result = ClusterResult(clusters)
+        print(f"Loaded clustering from: {filename}")
+        print(f"  {result.num_clusters} clusters, {result.num_nodes} nodes")
+        return result
 
     def __repr__(self):
         n_clusters = len(self.clusters)
@@ -130,17 +334,20 @@ class Graph:
         minimum k-core searches to avoid redundant computation.
 
         Returns:
-            KCoreResult object with core_numbers (list) and max_core (int)
+            KCoreDecomposition object with core_numbers (list) and max_core (int)
 
         Example:
             >>> g = ikc.load_graph('network.tsv')
             >>> kcore = g.compute_kcore_decomposition()
             >>> print(f"Max core: {kcore.max_core}")
+            >>> # Save for later use
+            >>> kcore.save('kcore.csv')
             >>> # Now use cached core numbers for multiple searches
-            >>> result1 = g.find_minimum_kcore(k=5, core_numbers=kcore.core_numbers)
-            >>> result2 = g.find_minimum_kcore(k=10, core_numbers=kcore.core_numbers)
+            >>> result1 = g.find_maximal_kcore(query_node=42, core_numbers=kcore.core_numbers)
+            >>> result2 = g.find_maximal_kcore(query_node=100, core_numbers=kcore.core_numbers)
         """
-        return _ikc.compute_kcore_decomposition(self._graph)
+        kcore_result = _ikc.compute_kcore_decomposition(self._graph)
+        return KCoreDecomposition(kcore_result)
 
     def find_maximal_kcore(self, query_node: int, core_numbers: Optional[List[int]] = None):
         """
@@ -555,4 +762,4 @@ class StreamingGraph:
         return f"StreamingGraph(file='{self.graph_file}', nodes={self.num_nodes}, edges={self.num_edges})"
 
 
-__all__ = ['load_graph', 'Graph', 'ClusterResult', 'StreamingGraph']
+__all__ = ['load_graph', 'Graph', 'ClusterResult', 'StreamingGraph', 'KCoreDecomposition']

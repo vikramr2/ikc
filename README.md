@@ -241,6 +241,87 @@ python3 examples/maximal_kcore_example.py
 
 ---
 
+## Loading Pre-computed Results
+
+You can save and load both IKC clustering results and k-core decompositions to avoid redundant computation.
+
+### Loading Clustering Results
+
+If you've already run IKC and saved the results, you can load them directly without recomputing:
+
+```python
+import ikc
+
+# First time: Run IKC and save results
+g = ikc.load_graph('network.tsv')
+clusters = g.ikc(min_k=10)
+clusters.save('results.csv')
+
+# Later: Load pre-computed clustering (no graph loading or IKC computation!)
+clusters = ikc.ClusterResult.load('results.csv')
+print(f"Loaded {clusters.num_clusters} clusters with {clusters.num_nodes} nodes")
+
+# Access the data as usual
+for node_id, cluster_id, k_value, modularity in clusters.data[:10]:
+    print(f"Node {node_id}: cluster={cluster_id}, k={k_value}")
+```
+
+### Saving and Loading K-Core Decomposition
+
+For multiple k-core queries, you can save the decomposition once and reuse it:
+
+```python
+import ikc
+
+# Compute and save k-core decomposition
+g = ikc.load_graph('network.tsv')
+kcore = g.compute_kcore_decomposition()
+kcore.save('kcore.csv')
+print(f"Saved decomposition with max core: {kcore.max_core}")
+
+# Later: Load pre-computed decomposition
+g = ikc.load_graph('network.tsv')
+kcore = ikc.KCoreDecomposition.load('kcore.csv', num_nodes=g.num_nodes)
+
+# Use for fast maximal k-core queries (no recomputation!)
+result = g.find_maximal_kcore(query_node=42, core_numbers=kcore.core_numbers)
+print(f"Node 42 is in a {result['k']}-core with {result['size']} nodes")
+
+# Reuse for more queries
+result2 = g.find_maximal_kcore(query_node=100, core_numbers=kcore.core_numbers)
+```
+
+### Use Cases
+
+- **Analysis**: Reload results for further analysis without rerunning IKC
+- **Comparison**: Load different clustering runs to compare results
+- **Interactive exploration**: Compute k-core once, explore many nodes interactively
+- **Sharing**: Share results with collaborators without requiring them to run IKC
+
+### CSV Formats
+
+**Clustering results** (`node_id,cluster_id,k_value,modularity`):
+
+```csv
+node_id,cluster_id,k_value,modularity
+1,1,15,0.523
+2,1,15,0.523
+3,2,12,0.411
+```
+
+**K-core decomposition** (`node_id,core_number`):
+
+```csv
+node_id,core_number
+0,5
+1,12
+2,8
+```
+
+See [examples/load_results_example.py](examples/load_results_example.py) for complete examples.
+
+---
+
 ## Maximal K-Core Search
 
 **⚠️ Beta Feature**: This functionality is currently in beta and under active development.

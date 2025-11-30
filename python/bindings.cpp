@@ -169,8 +169,9 @@ PYBIND11_MODULE(_ikc, m) {
 
     // Expose k-core decomposition result structure
     py::class_<KCoreResult>(m, "KCoreResult")
-        .def_readonly("core_numbers", &KCoreResult::core_numbers)
-        .def_readonly("max_core", &KCoreResult::max_core)
+        .def(py::init<size_t>(), py::arg("num_nodes"), "Create KCoreResult with num_nodes")
+        .def_readwrite("core_numbers", &KCoreResult::core_numbers)
+        .def_readwrite("max_core", &KCoreResult::max_core)
         .def("__repr__", [](const KCoreResult& r) {
             return "<KCoreResult nodes=" + std::to_string(r.core_numbers.size()) +
                    " max_core=" + std::to_string(r.max_core) + ">";
