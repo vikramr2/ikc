@@ -67,9 +67,12 @@ class KCoreDecomposition:
         The CSV should have format: node_id,core_number
         Can include a header row (will be auto-detected).
 
+        Note: Node IDs in the file can be non-contiguous. Missing node IDs
+        will be assigned core_number=0.
+
         Args:
             filename: Input file path
-            num_nodes: Expected number of nodes (optional, will be inferred if not provided)
+            num_nodes: Expected number of nodes (optional, will be inferred from max node ID if not provided)
 
         Returns:
             KCoreDecomposition object
@@ -79,7 +82,6 @@ class KCoreDecomposition:
             >>> print(f"Max core: {kcore.max_core}")
         """
         core_numbers = {}
-        max_node_id = -1
 
         with open(filename, 'r') as f:
             reader = csv.reader(f)
@@ -95,7 +97,6 @@ class KCoreDecomposition:
                 core_num = int(first_row[1])
                 # It's data, not a header
                 core_numbers[node_id] = core_num
-                max_node_id = max(max_node_id, node_id)
             except (ValueError, IndexError):
                 # It's a header, skip it
                 pass
@@ -106,7 +107,6 @@ class KCoreDecomposition:
                     node_id = int(row[0])
                     core_num = int(row[1])
                     core_numbers[node_id] = core_num
-                    max_node_id = max(max_node_id, node_id)
                 except (ValueError, IndexError) as e:
                     raise ValueError(f"Invalid row in {filename}: {row}") from e
 
@@ -114,6 +114,7 @@ class KCoreDecomposition:
             raise ValueError(f"No valid data found in {filename}")
 
         # Determine number of nodes
+        max_node_id = max(core_numbers.keys())
         if num_nodes is None:
             num_nodes = max_node_id + 1
         elif max_node_id >= num_nodes:
@@ -122,7 +123,7 @@ class KCoreDecomposition:
         # Create KCoreResult and populate it
         kcore_result = _ikc.KCoreResult(num_nodes)
 
-        # Fill in core numbers (default to 0 for missing nodes)
+        # Fill in core numbers (default to 0 for missing/non-contiguous nodes)
         for i in range(num_nodes):
             kcore_result.core_numbers[i] = core_numbers.get(i, 0)
 
@@ -130,8 +131,9 @@ class KCoreDecomposition:
         kcore_result.max_core = max(core_numbers.values()) if core_numbers else 0
 
         result = KCoreDecomposition(kcore_result)
+        num_nodes_in_file = len(core_numbers)
         print(f"K-core decomposition loaded from: {filename}")
-        print(f"  Nodes: {num_nodes}, Max core: {result.max_core}")
+        print(f"  Nodes in file: {num_nodes_in_file}, Total nodes: {num_nodes}, Max core: {result.max_core}")
         return result
 
     def __repr__(self):
