@@ -116,9 +116,11 @@ class KCoreDecomposition:
         # Determine number of nodes
         max_node_id = max(core_numbers.keys())
         if num_nodes is None:
+            # Infer from max node ID in file
             num_nodes = max_node_id + 1
-        elif max_node_id >= num_nodes:
-            raise ValueError(f"Node ID {max_node_id} exceeds expected num_nodes {num_nodes}")
+        else:
+            # Use provided num_nodes, but expand if necessary to fit all node IDs
+            num_nodes = max(num_nodes, max_node_id + 1)
 
         # Create KCoreResult and populate it
         kcore_result = _ikc.KCoreResult(num_nodes)
