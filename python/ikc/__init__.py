@@ -125,9 +125,9 @@ class KCoreDecomposition:
         # Create KCoreResult and populate it
         kcore_result = _ikc.KCoreResult(num_nodes)
 
-        # Fill in core numbers (default to 0 for missing/non-contiguous nodes)
-        for i in range(num_nodes):
-            kcore_result.core_numbers[i] = core_numbers.get(i, 0)
+        # Fill in core numbers (only set non-zero values; vector is already initialized to 0)
+        for node_id, core_num in core_numbers.items():
+            kcore_result.core_numbers[node_id] = core_num
 
         # Calculate max_core
         kcore_result.max_core = max(core_numbers.values()) if core_numbers else 0
